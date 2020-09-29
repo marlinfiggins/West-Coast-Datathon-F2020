@@ -1,0 +1,8 @@
+# mac files
+.DS_Store
+
+# notebook checkpoints
+*.ipynb_checkpoints
+
+# data
+*.csv
