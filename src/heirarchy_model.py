@@ -13,6 +13,7 @@
 
 import numpy as np
 from numba import jit
+import math
 
 
 @jit(nopython=True)
@@ -113,7 +114,12 @@ class heirarchy_model:
         '''
         Compute probability matrix corresponding to the scores.
         '''
-        prob_mat = np.exp(self.S)  # Taking R to [0. 1]
+
+        def sigmooid(x):
+            return 1/(1 + math.exp(-x))
+        sigmooid = np.vectorize(sigmooid)
+
+        prob_mat = np.sigmoid(self.S)  # Taking R to [0. 1]
         prob_mat = prob_mat / prob_mat.sum(axis=2)[:, :, np.newaxis]
         self.prob_mat
 
