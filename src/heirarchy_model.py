@@ -8,12 +8,18 @@
 
 # To do:
 # Implement scoring based on statistical model
+# -We generate scores based on several covariates which are entered as a matrix for each actor
+# -We then use features in the model phi x is x is good example
 # Implement get_ methods for visualization
 # Simulate heirarchies based on this model for Actor netowrks.
 
 import numpy as np
 from numba import jit
 import math
+
+# Inference
+from scipy.special import gammaln
+from scipy.optimize import minimize
 
 
 @jit(nopython=True)
@@ -43,14 +49,18 @@ class heirarchy_model:
             self.steps = Delta.shape[0]
             self.n = Delta.shape[1]
 
+    def set_features(self, feature_list):
+        pass
+
     def score(self, A, scoring):
         '''
         This function is used to score individuals in order to determine
         their probability of endorsing another agent.
         '''
-        pass
+        s = np.zeros_like(A)
+        return s
 
-    def simulate(self, lambd, scoring, steps):
+    def simulate(self, beta, lambd, scoring, steps):
         '''
         This is used to simulate an iteration of our model.
         scoring: this is a function which allows us to score our agents at
@@ -63,11 +73,12 @@ class heirarchy_model:
         Delta = np.zeros((steps + 1, n, n))  # Unweighted Updates
         Delta[0] = self.A0
         A = Delta.copy()  # Weighted history
+        PHI = np.zeros((self.k_features, n, n))  # Features computed from score
 
         # initializing variables
         self.prob_mat = np.zeros((steps, n, n))
         self.A = np.zeros((steps.n, n, n))
-        self.S = np.zeros((steps.n, n, n))
+        self.S = np.zeros((steps.n, n))
 
         for t in range(1, steps + 1):
             # compute scores
@@ -75,12 +86,16 @@ class heirarchy_model:
             self.S[t-1] = s
 
             # compute features
-            # might be able to skip this as transformation might not be needed
+            # Need to take covariates to features
+            # Should also loop over i and j
+            for k in range(self.k_features):
+                PHI[k] = self.phi[k](s)
 
             # compute prob_mat using scores
-            prob_mat = np.exp(s)  # Taking R to [0. 1]
-            prob_mat = prob_mat / prob_mat.sum(axis=1)[:, np.newaxis]
+            p = np.tensordot(beta, PHI, axes=(0, 0))  # Taking R to [0. 1]
 
+            prob_mat = np.exp(p)
+            prob_mat = prob_mat / prob_mat.sum(axis=1)[:, np.newaxis]
             # Compute update
             Delta[t-1] = deterministic_step(prob_mat)
 
@@ -91,6 +106,7 @@ class heirarchy_model:
             self.A[t-1] = A[t-1]
             return Delta
 
+# Inference process functions 
     def compute_state_from_deltas(self, lambd, A0=None):
         if A0 is None:
             A0 = self.Delta[0]
@@ -101,44 +117,76 @@ class heirarchy_model:
         return A
 
     def compute_score(self):
+        '''
+        Compute scores for individual actors based on input data.
+        '''
+
+        # This may become a reference which splits covariates at relevant t.
         pass
 
-    # Inference for lambda
+    def compute_phi(self):
+        '''
+        Compute relevent features based on score input
+        '''
+        # phi returns feature list of interest between pairs of actors
+        pass
+
     def compute_trajectory(self, lambd):
         '''
         Compute the trajectory A associated with a given lambda value
         '''
         self.A = self.state_from_deltas(lambd, self.A0)
 
-    def compute_prob_mat(self):
+    def compute_prob_mat(self, beta):
         '''
         Compute probability matrix corresponding to the scores.
         '''
 
-        def sigmooid(x):
-            return 1/(1 + math.exp(-x))
-        sigmooid = np.vectorize(sigmooid)
-
-        prob_mat = np.sigmoid(self.S)  # Taking R to [0. 1]
+        # Compute rates from beta
+        p = np.tensordot(beta, self.S, axes=(0, 1))
+        prob_mat = np.exp(p)  # Taking R to [0. 1]
         prob_mat = prob_mat / prob_mat.sum(axis=2)[:, :, np.newaxis]
-        self.prob_mat
+        self.prob_mat = prob_mat
 
-    def likelihood(self):
-        # We need only estimate lambd due to the fact we're using
-        # a statistical model in our utility computations
-        pass
+    # Algorithm of optimization
+    def likelihood(self, beta):
+        '''
+        Calculate likelihood for given beta vector
+        '''
+
+        self.compute_prob_mat(beta)
+        DeltaDiff = np.diff(self.Delta, axis=0)
+        C = gammaln(DeltaDiff.sum(axis=1)+1).sum() - gammaln(DeltaDiff+1).sum()
+        ll = DeltaDiff*np.log(self.prob_mat[:-1]).sum() + C
+        return ll
+
+    def beta_max(self, b0=None):
+        '''
+        Estimate beta vector.
+        '''
+
+        if b0 is None:
+            b0 = np.zeros(self.k_features)
+
+        res = minimize(
+                fun=lambda b: -self.ll(b),
+                x0=b0
+        )
+
+        return res
 
     def optim(self, lambd0, alpha0=10 ** (-4), delta=10 ** (-4), tol=10 ** (-3), max_step=0.2):
         # We'll use a finite differences scheme to optimize this.
-
         def objective(lambd):
             self.compute_state_from_deltas(lambd)
             self.compute_score()
 
-            # What should I compare this to? Is lambda just a hyperparameter?
-            out = 1
+            res = self.beta_max(b0=self.b0)
+            out = res['fun']
+            self.b0 = res['x']
             return out
 
+        # Initalizing for gradient ascent
         obj_old = np.inf
         obj = objective(lambd0)
         alpha = alpha0
@@ -159,3 +207,22 @@ class heirarchy_model:
 
             obj = objective(prop)
             alpha = alpha0  # Reset hyperparameter
+
+        # After finding tolerant lambda, reoptimize
+        out = objective(lambd)
+
+        return({
+            'lambda': lambd,
+            'beta': self.b0,
+            "LL": out
+        })
+
+    # Inspection methods
+    def get_Delta(self):
+        pass
+
+    def get_scores(self):
+        pass
+
+    def get_states(self):
+        pass
