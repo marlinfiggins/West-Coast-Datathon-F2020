@@ -15,7 +15,6 @@
 
 import numpy as np
 from numba import jit
-import math
 
 # Inference
 from scipy.special import gammaln
@@ -96,6 +95,7 @@ class heirarchy_model:
 
             prob_mat = np.exp(p)
             prob_mat = prob_mat / prob_mat.sum(axis=1)[:, np.newaxis]
+
             # Compute update
             Delta[t-1] = deterministic_step(prob_mat)
 
@@ -106,7 +106,7 @@ class heirarchy_model:
             self.A[t-1] = A[t-1]
             return Delta
 
-# Inference process functions 
+# Inference process functions
     def compute_state_from_deltas(self, lambd, A0=None):
         if A0 is None:
             A0 = self.Delta[0]
