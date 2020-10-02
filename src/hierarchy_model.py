@@ -1,5 +1,5 @@
-# heirarchy_model.py
-# Description: Simulates heirarchy model based on Kawakatsu et al.
+# hierarchy_model.py
+# Description: Simulates hierarchy model based on Kawakatsu et al.
 # based on https://github.com/PhilChodrow/prestige_reinforcement/blob/master/py/model.py
 # with change to class structure and optimization method, underlying structure is mostly unchanged.
 
@@ -34,7 +34,7 @@ def deterministic_step(prob_mat, endorse_per_agent=1):
     return Delta
 
 
-class heirarchy_model:
+class hierarchy_model:
     def __init__(self, Delta=None, A0=None):
         self.input_data(Delta, A0)
 
