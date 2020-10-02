@@ -10,6 +10,7 @@
 # Implement scoring based on statistical model
 # -We generate scores based on several covariates which are entered as a matrix for each actor
 # -We then use features in the model phi x is x is good example
+# Finish implementing set_featurse and compute features
 # Implement get_ methods for visualization
 # Simulate heirarchies based on this model for Actor netowrks.
 
@@ -35,7 +36,7 @@ def deterministic_step(prob_mat, endorse_per_agent=1):
 
 
 class hierarchy_model:
-    def __init__(self, Delta=None, A0=None):
+    def __init__(self, Delta=None, A0=None, cov=None):
         self.input_data(Delta, A0)
 
     def input_data(self, Delta, A0):
@@ -48,16 +49,18 @@ class hierarchy_model:
             self.steps = Delta.shape[0]
             self.n = Delta.shape[1]
 
-    def set_features(self, feature_list):
-        pass
+    def input_covariates(self, cov=None):
+        self.cov = cov
+        if self.cov is not None:
+            self.k_covs = cov.shape[1]
 
-    def score(self, A, scoring):
-        '''
-        This function is used to score individuals in order to determine
-        their probability of endorsing another agent.
-        '''
-        s = np.zeros_like(A)
-        return s
+    def set_features(self, feature_list):
+        ''''
+        feature_list is a list of functions with
+        Inputs - cov: n x k_cov matrices
+        Outputs - u: n x n matrices
+        ''''
+        pass
 
     def simulate(self, beta, lambd, scoring, steps):
         '''
@@ -116,18 +119,16 @@ class hierarchy_model:
             A[t] = lambd*A[t-1] + (1 - lambd)*self.Delta[t-1]
         return A
 
-    def compute_score(self):
-        '''
-        Compute scores for individual actors based on input data.
-        '''
-
-        # This may become a reference which splits covariates at relevant t.
-        pass
-
     def compute_phi(self):
         '''
-        Compute relevent features based on score input
+        Compute relevent features based on covariates at that time/
+        Each phi must take n_agents by k_cov to feature vector of interest.
+        phi[1] -> f(cov) = (cov - cov.T)
         '''
+        for t in range(self.n):
+            for j in range(self.k_features):
+                PHI[t,j] = self.phi[k](self.cov[t])
+
         # phi returns feature list of interest between pairs of actors
         pass
 
