@@ -18,6 +18,18 @@ def generate_features():
         S = np.concatenate((S, [c]))
     return to_sparse(S)
 
+def generate_features_small():
+    keep = ['log_total_gross', 'mean_score', 'mean_votes']
+    df = pd.read_csv("../data/features.csv")
+
+    a = df[df.year == 1986].drop(columns = ["agent","is_director","id","year","time"])[keep].to_numpy()
+    b = df[df.year == 1987].drop(columns = ["agent","is_director","id","year","time"])[keep].to_numpy()
+    S = np.stack((a,b))
+    for year in np.arange(1988, 2017):
+        c = df[df.year == year].drop(columns = ["agent","is_director","id","year","time"])[keep].to_numpy()
+        S = np.concatenate((S, [c]))
+    return S
+
 def get_agents():
     df = pd.read_csv("../data/features.csv")
     return df[df.year == 1986].agents.values

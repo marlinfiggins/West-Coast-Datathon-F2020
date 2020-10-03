@@ -20,7 +20,8 @@ from numba import jit
 # Inference
 from scipy.special import gammaln
 from scipy.optimize import minimize
-
+import scipy.sparse as sparse
+import sklearn.metrics.pairwise
 
 @jit(nopython=True)
 def deterministic_step(prob_mat, endorse_per_agent=1):
@@ -54,7 +55,7 @@ class hierarchy_model:
     def input_covariates(self, cov=None):
         self.cov = cov
         if self.cov is not None:
-            self.k_covs = cov.shape[2]
+            self.k_covs = cov[0].shape[1]
 
     def set_features(self, feature_list=None):
         '''
@@ -74,8 +75,9 @@ class hierarchy_model:
         Generate feature list of f(x) = x for k_covs
         '''
         def pairwise_vector_diff(v):
-            return np.abs(v[:, np.newaxis] - v)
-
+            v = v.reshape(-1, 1)
+            return sklearn.metrics.pairwise.pairwise_distances(v.reshape(-1,1), v.reshape(-1,1))
+           #return sparse.csr_matrix(sklearn.metrics.pairwise.pairwise_distances(v, v))
         feature_list = [pairwise_vector_diff]*self.k_covs
         return feature_list
 
@@ -135,11 +137,12 @@ class hierarchy_model:
         Each phi must take n_agents by k_cov to feature vector of interest.
         phi[1] -> f(cov) = (cov - cov.T)
         '''
-        PHI = np.zeros((self.steps, self.k_features, self.n, self.n))
+        self.PHI = np.zeros((self.steps, self.k_features, self.n, self.n))
         for t in range(self.steps):
             for j in range(self.k_features):
-                PHI[t, j] = self.phi[j](self.cov[t][:, j])
-        self.PHI = PHI
+                self.PHI[t][j] = self.phi[j](self.cov[t][:, j])
+
+            print(f"Features at time {t} computed.")
 
     def compute_trajectory(self, lambd):
         '''
@@ -154,9 +157,8 @@ class hierarchy_model:
 
         # Compute rates from beta
         p = np.tensordot(beta, self.PHI, axes=(0, 1))
-        prob_mat = np.exp(p)  # Taking R to [0. 1]
-        prob_mat = prob_mat / prob_mat.sum(axis=2)[:, :, np.newaxis]
-        self.prob_mat = prob_mat
+        self.prob_mat = np.exp(p)  # Taking R to [0. 1]
+        self.prob_mat = self.prob_mat / self.prob_mat.sum(axis=2)[:, :, np.newaxis]
 
     # Algorithm of optimization
     def likelihood(self, beta):
@@ -165,8 +167,8 @@ class hierarchy_model:
         '''
         self.compute_prob_mat(beta)
         DeltaDiff = np.diff(self.Delta, axis=0)
-        C = gammaln(DeltaDiff.sum(axis=1)+1).sum() - gammaln(DeltaDiff+1).sum()
-        ll = DeltaDiff*np.log(self.prob_mat[:-1]).sum() + C
+        #C = gammaln(DeltaDiff.sum(axis=1)+1).sum() - gammaln(DeltaDiff+1).sum()
+        ll = (DeltaDiff*np.log(self.prob_mat[:-1])).sum() #+ C (excluding terms not dependent on lamb or b)
         return ll
 
     def beta_max(self, b0=None):
@@ -185,9 +187,16 @@ class hierarchy_model:
         return res
 
     def optim(self, lambd0, alpha0=10 ** (-4), delta=10 ** (-4), tol=10 ** (-3), max_step=0.2):
-
         # We'll use a finite differences scheme to optimize this.
-        self.compute_phi()  # Features only need to be computed once.
+
+        # Write function that saves this and loads if already exists
+        #self.compute_phi()  # Features only need to be computed once.
+        #print("Computed Features.")
+
+        with open('../data/features.npy', 'rb') as f:
+            self.PHI = np.load(f)
+        print("Loaded Features.")
+
         self.b0 = np.zeros(self.k_features)
 
         def objective(lambd):
@@ -195,6 +204,7 @@ class hierarchy_model:
             res = self.beta_max(b0=self.b0)
             out = res['fun']
             self.b0 = res['x']
+            print(f"Current lambda{lambd}")
             return out
 
         # Initalizing for gradient ascent
@@ -218,8 +228,6 @@ class hierarchy_model:
 
             obj = objective(prop)
             alpha = alpha0  # Reset hyperparameter
-
-            print(f"Current lambda{lambd}")
 
         # After finding tolerant lambda, reoptimize
         out = objective(lambd)

@@ -5,7 +5,7 @@
 
 from Graph_Helper import load_timesteps
 from hierarchy_model import hierarchy_model
-from feature_mat import generate_features
+from feature_mat import *
 import json
 import os
 
@@ -14,7 +14,7 @@ if __name__ == "__main__":
     nodelist, Delta = load_timesteps(os.path.join(os.pardir, "data", "graph.npy"))
 
     # Load covariates
-    cov = generate_features()
+    cov = generate_features_small()
 
     # Initialize hierarchy object with Delta and cov
     model = hierarchy_model(Delta=Delta, cov=cov)
