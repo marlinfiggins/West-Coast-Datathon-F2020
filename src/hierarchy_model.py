@@ -191,8 +191,8 @@ class hierarchy_model:
             #ll += (self.Delta[t].toarray()*np.log(self.prob_mat[t])).sum()
             #ll = np.matmul(self.Delta[t].toarray(), log_list[t]).sum()
             #ll += compute_ll(self.Delta[t].toarray(), log_list[t])
-            ll += sparse.csr_matrix.dot(self.Delta[t], log_list[t])
-        return ll
+            ll += sparse.csr_matrix.dot(self.Delta[t], log_list[t]).sum()
+        return -ll
 
 
 
@@ -205,13 +205,25 @@ class hierarchy_model:
             b0 = np.zeros(self.k_features) + 0.01
 
         res = minimize(
-                fun=lambda b: -self.likelihood(b),
-                x0=b0
+                fun=lambda b: self.likelihood(b),
+                x0=b0,
+                method='Nelder-Mead'
         )
 
         return res
 
-    def optim(self, lambd0, alpha0=10 ** (-2), delta=10 ** (-2), tol=10 ** (-1), max_step=0.2):
+    def objective(self, lambd):
+        self.compute_state_from_deltas(lambd)
+        print("Starting optimization over beta.")
+
+        res = self.beta_max(b0=self.b0)
+        out = res['fun']
+        self.b0 = res['x']
+
+        print(res)
+        return out
+
+    def optim(self, lambd0, alpha0=1, delta=10 ** (-1), tol=10 ** (-1), max_step=0.5):
         # We'll use a finite differences scheme to optimize this.
 
         # Write function that saves this and loads if already exists
@@ -220,34 +232,25 @@ class hierarchy_model:
 
         self.b0 = np.zeros(self.k_features)
 
-        def objective(lambd):
-            self.compute_state_from_deltas(lambd)
-            print("Starting optimization over beta.")
-
-            res = self.beta_max(b0=self.b0)
-            out = res['fun']
-            self.b0 = res['x']
-            return out
-
         # Initalizing for gradient ascent
         obj_old = np.inf
-        obj = objective(lambd0)
+        obj = self.objective(lambd0)
         alpha = alpha0
         lambd = lambd0
 
         while (obj_old - obj > tol):
             obj_old = obj
-            diff = (objective(lambd + delta) - obj) / delta
-            step = np.sign(diff)*min(abs(diff), max_step/alpha)
+            diff = (self.objective(lambd + delta) - obj) / delta
+            step = np.sign(diff)*np.min((np.abs(diff), max_step/alpha))
 
             obj_prop = np.inf
             prop = lambd - alpha*step
-
+            print(alpha*step)
             while obj_prop > obj:
                 # Once we identify direction of increase find hyper parameter
                 # small enough for obj increase
                 prop = lambd - alpha*step
-                obj_prop = objective(prop)
+                obj_prop = self.objective(prop)
                 alpha = alpha / 2
 
             lambd = prop
@@ -256,7 +259,7 @@ class hierarchy_model:
             print(f"Current lambda: {lambd}")
 
         # After finding tolerant lambda, reoptimize
-        out = objective(lambd)
+        out = self.objective(lambd)
 
         return({
             'lambda': lambd,
