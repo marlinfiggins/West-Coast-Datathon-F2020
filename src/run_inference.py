@@ -17,11 +17,11 @@ if __name__ == "__main__":
     cov = generate_features_small()
 
     # Run tests with smaller time steps
-    Test_steps = [0, 1, 2]
+    #Test_steps = [0, 1, 2]
 
     # Initialize hierarchy object with Delta and cov
-    model = hierarchy_model(Delta=Delta[Test_steps], cov=cov[Test_steps])
-
+    model = hierarchy_model(Delta=Delta, cov=cov)
+    #model = hierarchy_model(Delta=Delta[Test_steps], cov=cov[Test_steps])
     # Optimize model
     parms = model.optim(lambd0 = 0.9)
     print(parms)

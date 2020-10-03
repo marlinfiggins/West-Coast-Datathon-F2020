@@ -38,8 +38,6 @@ def deterministic_step(prob_mat, endorse_per_agent=1):
 
 def compute_ll(Delta, log_list):
     ll = np.matmul(Delta, log_list).sum()
-    if np.isnan(ll):
-        return -np.inf
     return ll
 
 class hierarchy_model:
@@ -193,7 +191,6 @@ class hierarchy_model:
             #ll += (self.Delta[t].toarray()*np.log(self.prob_mat[t])).sum()
             #ll = np.matmul(self.Delta[t].toarray(), log_list[t]).sum()
             ll += compute_ll(self.Delta[t].toarray(), log_list[t])
-       #print(ll)
         return ll
 
 
@@ -213,7 +210,7 @@ class hierarchy_model:
 
         return res
 
-    def optim(self, lambd0, alpha0=10 ** (-3), delta=10 ** (-3), tol=10 ** (-2), max_step=0.2):
+    def optim(self, lambd0, alpha0=10 ** (-2), delta=10 ** (-2), tol=10 ** (-1), max_step=0.2):
         # We'll use a finite differences scheme to optimize this.
 
         # Write function that saves this and loads if already exists
