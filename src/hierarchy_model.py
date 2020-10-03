@@ -36,8 +36,10 @@ def deterministic_step(prob_mat, endorse_per_agent=1):
 
 
 class hierarchy_model:
-    def __init__(self, Delta=None, A0=None, cov=None):
+    def __init__(self, Delta=None, A0=None, cov=None, feature_list=None):
         self.input_data(Delta, A0)
+        self.input_covariates(cov)
+        self.set_features(feature_list)
 
     def input_data(self, Delta, A0):
         self.Delta = Delta
@@ -54,13 +56,28 @@ class hierarchy_model:
         if self.cov is not None:
             self.k_covs = cov.shape[1]
 
-    def set_features(self, feature_list):
-        ''''
+    def set_features(self, feature_list=None):
+        '''
         feature_list is a list of functions with
         Inputs - cov: n x k_cov matrices
         Outputs - u: n x n matrices
-        ''''
-        pass
+        '''
+        # For simplicity, do each pairwise differences
+        if feature_list is None:
+            feature_list = self.generate_features()
+
+        self.phi = feature_list
+        self.k_features = len(feature_list)
+
+    def generate_features(self):
+        '''
+        Generate feature list of f(x) = x for k_covs
+        '''
+        def pairwise_vector_diff(v):
+            return np.abs(v[:, np.newaxis] - v)
+
+        feature_list = [pairwise_vector_diff]*self.k_covs
+        return feature_list
 
     def simulate(self, beta, lambd, scoring, steps):
         '''
@@ -125,11 +142,10 @@ class hierarchy_model:
         Each phi must take n_agents by k_cov to feature vector of interest.
         phi[1] -> f(cov) = (cov - cov.T)
         '''
+        PHI = np.zeros((self.steps, self.k_features, self.n, self.n))
         for t in range(self.n):
             for j in range(self.k_features):
-                PHI[t,j] = self.phi[k](self.cov[t])
-
-        # phi returns feature list of interest between pairs of actors
+                PHI[t, j] = self.phi[j](self.cov[t])
         pass
 
     def compute_trajectory(self, lambd):
