@@ -190,7 +190,8 @@ class hierarchy_model:
         for t in range(self.steps - 1):
             #ll += (self.Delta[t].toarray()*np.log(self.prob_mat[t])).sum()
             #ll = np.matmul(self.Delta[t].toarray(), log_list[t]).sum()
-            ll += compute_ll(self.Delta[t].toarray(), log_list[t])
+            #ll += compute_ll(self.Delta[t].toarray(), log_list[t])
+            ll += sparse.csr_matrix.dot(self.Delta[t], log_list[t])
         return ll
 
 
