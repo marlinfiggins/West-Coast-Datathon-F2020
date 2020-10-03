@@ -205,7 +205,7 @@ class hierarchy_model:
 
         return res
 
-    def optim(self, lambd0, alpha0=10 ** (-4), delta=10 ** (-4), tol=10 ** (-3), max_step=0.2):
+    def optim(self, lambd0, alpha0=10 ** (-3), delta=10 ** (-3), tol=10 ** (-2), max_step=0.2):
         # We'll use a finite differences scheme to optimize this.
 
         # Write function that saves this and loads if already exists
@@ -248,7 +248,8 @@ class hierarchy_model:
                 obj_prop = objective(prop)
                 alpha = alpha / 2
 
-            obj = objective(prop)
+            lambd = prop
+            obj = obj_prop
             alpha = alpha0  # Reset hyperparameter
             print(f"Current lambda: {lambd}")
 
