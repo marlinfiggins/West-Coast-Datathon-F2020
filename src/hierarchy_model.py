@@ -36,6 +36,11 @@ def deterministic_step(prob_mat, endorse_per_agent=1):
     Delta = prob_mat*endorse_per_agent / n
     return Delta
 
+def compute_ll(Delta, log_list):
+    ll = np.matmul(Delta, log_list).sum()
+    if np.isnan(ll):
+        return -np.inf
+    return ll
 
 class hierarchy_model:
     def __init__(self, Delta=None, A0=None, cov=None, feature_list=None):
@@ -160,35 +165,38 @@ class hierarchy_model:
         Compute probability matrix corresponding to the weighted features.
         '''
 
+        log_list = []
         # Compute rates from beta
         for t in range(self.steps):
             self.prob_mat = [0]*self.steps
-            #p = [0]*self.k_features
-            p = sum([beta[j]*self.PHI[t][j] for j in range(self.k_features)])
-            #for j in range(self.k_features):
-            #    p[j] = beta[j]*self.PHI[t][j]
-            type(p)
-            self.prob_mat[t] = np.exp(p.toarray())
-            self.prob_mat[t] = self.prob_mat[t]/ self.prob_mat[t].sum(axis =1)[:, np.newaxis]
+            p = [0]*self.k_features
+            #p = sum([beta[j]*self.PHI[t][j] for j in range(self.k_features)])
+            for j in range(self.k_features):
+                p[j] = beta[j]*self.PHI[t][j]
 
-                #p = np.tensordot(beta, self.PHI, axes=(0, 1))
-                #p = sparse.csr_matrix(p)
-                #self.prob_mat = np.exp(p)
-                #self.prob_mat = self.prob_mat / self.prob_mat.sum(axis=2)[:, :, np.newaxis]
+            self.prob_mat[t] = np.exp(sum(p).toarray())
+            self.prob_mat[t] = self.prob_mat[t]/ self.prob_mat[t].sum(axis =1)[:, np.newaxis]
+            log_list.append(np.log(self.prob_mat[t]))
+
+        return log_list
 
     # Algorithm of optimization
+
     def likelihood(self, beta):
         '''
         Calculate likelihood for given beta vector
         '''
         warnings.filterwarnings("ignore", category=RuntimeWarning)
-        self.compute_prob_mat(beta)
-        #C = gammaln(DeltaDiff.sum(axis=1)+1).sum() - gammaln(DeltaDiff+1).sum()
-        #ll = (DeltaDiff*np.log(self.prob_mat[:-1])).sum() #+ C (excluding terms not dependent on lamb or b)
+        log_list = self.compute_prob_mat(beta)
         ll = 0
         for t in range(self.steps - 1):
-            ll += (self.Delta[t]*np.log(self.prob_mat[t])).sum()
+            #ll += (self.Delta[t].toarray()*np.log(self.prob_mat[t])).sum()
+            #ll = np.matmul(self.Delta[t].toarray(), log_list[t]).sum()
+            ll += compute_ll(self.Delta[t].toarray(), log_list[t])
+       #print(ll)
         return ll
+
+
 
     def beta_max(self, b0=None):
         '''
@@ -196,7 +204,7 @@ class hierarchy_model:
         '''
 
         if b0 is None:
-            b0 = np.zeros(self.k_features)
+            b0 = np.zeros(self.k_features) + 0.01
 
         res = minimize(
                 fun=lambda b: -self.likelihood(b),
@@ -211,10 +219,6 @@ class hierarchy_model:
         # Write function that saves this and loads if already exists
         self.compute_phi()  # Features only need to be computed once.
         print("Computed Features.")
-        # Load features if they already exist
-        #with open('../data/features.npy', 'rb') as f:
-         #   self.PHI = np.load(f)
-        #print("Loaded Features.")
 
         self.b0 = np.zeros(self.k_features)
 
@@ -258,7 +262,7 @@ class hierarchy_model:
 
         return({
             'lambda': lambd,
-            'beta': self.b0,
+            'beta': self.b0.tolist(),
             "LL": out
         })
 
