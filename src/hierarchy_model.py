@@ -219,8 +219,6 @@ class hierarchy_model:
         res = self.beta_max(b0=self.b0)
         out = res['fun']
         self.b0 = res['x']
-
-        print(res)
         return out
 
     def optim(self, lambd0, alpha0=1, delta=10 ** (-1), tol=10 ** (-1), max_step=0.5):
