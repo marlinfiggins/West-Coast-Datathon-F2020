@@ -54,7 +54,7 @@ class hierarchy_model:
     def input_covariates(self, cov=None):
         self.cov = cov
         if self.cov is not None:
-            self.k_covs = cov.shape[1]
+            self.k_covs = cov.shape[2]
 
     def set_features(self, feature_list=None):
         '''
@@ -94,24 +94,15 @@ class hierarchy_model:
         A = Delta.copy()  # Weighted history
         PHI = np.zeros((self.k_features, n, n))  # Features computed from score
 
-        # initializing variables
+        # Initializing variables
         self.prob_mat = np.zeros((steps, n, n))
         self.A = np.zeros((steps.n, n, n))
-        self.S = np.zeros((steps.n, n))
+        self.compute_phi()
 
         for t in range(1, steps + 1):
-            # compute scores
-            s = self.score(A[t-1], scoring)
-            self.S[t-1] = s
 
-            # compute features
-            # Need to take covariates to features
-            # Should also loop over i and j
-            for k in range(self.k_features):
-                PHI[k] = self.phi[k](s)
-
-            # compute prob_mat using scores
-            p = np.tensordot(beta, PHI, axes=(0, 0))  # Taking R to [0. 1]
+            # Compute prob_mat using features
+            p = np.tensordot(beta, PHI[t], axes=(0, 0))  # Taking R to [0. 1]
 
             prob_mat = np.exp(p)
             prob_mat = prob_mat / prob_mat.sum(axis=1)[:, np.newaxis]
@@ -126,26 +117,28 @@ class hierarchy_model:
             self.A[t-1] = A[t-1]
             return Delta
 
-# Inference process functions
+    # Inference process functions
     def compute_state_from_deltas(self, lambd, A0=None):
         if A0 is None:
             A0 = self.Delta[0]
 
-        A = np.zeros_like(self.Delta).astype(float)
-        for t in range(1, self.steps + 1):
+        A = np.zeros_like(self.Delta)
+        A[0] = A0
+
+        for t in range(1, self.steps):
             A[t] = lambd*A[t-1] + (1 - lambd)*self.Delta[t-1]
         return A
 
     def compute_phi(self):
         '''
-        Compute relevent features based on covariates at that time/
+        Compute relevent features based on covariates at that time.
         Each phi must take n_agents by k_cov to feature vector of interest.
         phi[1] -> f(cov) = (cov - cov.T)
         '''
         PHI = np.zeros((self.steps, self.k_features, self.n, self.n))
-        for t in range(self.n):
+        for t in range(self.steps):
             for j in range(self.k_features):
-                PHI[t, j] = self.phi[j](self.cov[t])
+                PHI[t, j] = self.phi[j](self.cov[t][:, j])
         self.PHI = PHI
 
     def compute_trajectory(self, lambd):
@@ -185,17 +178,20 @@ class hierarchy_model:
             b0 = np.zeros(self.k_features)
 
         res = minimize(
-                fun=lambda b: -self.ll(b),
+                fun=lambda b: -self.likelihood(b),
                 x0=b0
         )
 
         return res
 
     def optim(self, lambd0, alpha0=10 ** (-4), delta=10 ** (-4), tol=10 ** (-3), max_step=0.2):
+
         # We'll use a finite differences scheme to optimize this.
+        self.compute_phi()  # Features only need to be computed once.
+        self.b0 = np.zeros(self.k_features)
+
         def objective(lambd):
             self.compute_state_from_deltas(lambd)
-            self.compute_phi()
             res = self.beta_max(b0=self.b0)
             out = res['fun']
             self.b0 = res['x']
@@ -214,7 +210,7 @@ class hierarchy_model:
 
             obj_prop = np.inf
             while obj_prop > obj:
-                # Once we idenitfy direction of increase find hyper parameter
+                # Once we identify direction of increase find hyper parameter
                 # small enough for obj increase
                 prop = lambd - alpha*step
                 obj_prop = objective(prop)
