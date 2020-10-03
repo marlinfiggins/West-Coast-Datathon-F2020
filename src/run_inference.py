@@ -20,7 +20,7 @@ if __name__ == "__main__":
     model = hierarchy_model(Delta=Delta, cov=cov)
 
     # Optimize model
-    parms = model.optim()
+    parms = model.optim(lambd0 = 0.1)
 
     with open('../outputs/parameters.json', 'wb') as file:
         json.dump(parms, file)

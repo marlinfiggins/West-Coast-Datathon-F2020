@@ -49,7 +49,7 @@ class hierarchy_model:
             self.A0 = A0
         if self.Delta is not None:
             self.steps = Delta.shape[0]
-            self.n = Delta.shape[1]
+            self.n = Delta[0].shape[0]
 
     def input_covariates(self, cov=None):
         self.cov = cov
@@ -146,7 +146,7 @@ class hierarchy_model:
         for t in range(self.n):
             for j in range(self.k_features):
                 PHI[t, j] = self.phi[j](self.cov[t])
-        pass
+        self.PHI = PHI
 
     def compute_trajectory(self, lambd):
         '''
@@ -160,7 +160,7 @@ class hierarchy_model:
         '''
 
         # Compute rates from beta
-        p = np.tensordot(beta, self.S, axes=(0, 1))
+        p = np.tensordot(beta, self.PHI, axes=(0, 1))
         prob_mat = np.exp(p)  # Taking R to [0. 1]
         prob_mat = prob_mat / prob_mat.sum(axis=2)[:, :, np.newaxis]
         self.prob_mat = prob_mat
@@ -170,7 +170,6 @@ class hierarchy_model:
         '''
         Calculate likelihood for given beta vector
         '''
-
         self.compute_prob_mat(beta)
         DeltaDiff = np.diff(self.Delta, axis=0)
         C = gammaln(DeltaDiff.sum(axis=1)+1).sum() - gammaln(DeltaDiff+1).sum()
@@ -196,8 +195,7 @@ class hierarchy_model:
         # We'll use a finite differences scheme to optimize this.
         def objective(lambd):
             self.compute_state_from_deltas(lambd)
-            self.compute_score()
-
+            self.compute_phi()
             res = self.beta_max(b0=self.b0)
             out = res['fun']
             self.b0 = res['x']
@@ -224,6 +222,8 @@ class hierarchy_model:
 
             obj = objective(prop)
             alpha = alpha0  # Reset hyperparameter
+
+            print(f"Current lambda{lambd}")
 
         # After finding tolerant lambda, reoptimize
         out = objective(lambd)
