@@ -220,12 +220,11 @@ class hierarchy_model:
 
         def objective(lambd):
             self.compute_state_from_deltas(lambd)
-            print("Computed lambda state.\n Starting optimization.")
+            print("Starting optimization over beta.")
 
             res = self.beta_max(b0=self.b0)
             out = res['fun']
             self.b0 = res['x']
-            print(f"Current lambda{lambd}")
             return out
 
         # Initalizing for gradient ascent
@@ -237,9 +236,11 @@ class hierarchy_model:
         while (obj_old - obj > tol):
             obj_old = obj
             diff = (objective(lambd + delta) - obj) / delta
-            step = np.sign(diff)*min(alpha*abs(diff), max_step)
+            step = np.sign(diff)*min(abs(diff), max_step/alpha)
 
             obj_prop = np.inf
+            prop = lambd - alpha*step
+
             while obj_prop > obj:
                 # Once we identify direction of increase find hyper parameter
                 # small enough for obj increase
@@ -249,6 +250,7 @@ class hierarchy_model:
 
             obj = objective(prop)
             alpha = alpha0  # Reset hyperparameter
+            print(f"Current lambda: {lambd}")
 
         # After finding tolerant lambda, reoptimize
         out = objective(lambd)

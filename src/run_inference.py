@@ -13,7 +13,7 @@ if __name__ == "__main__":
     # Load Delta as sparse array
     nodelist, Delta = load_timesteps(os.path.join(os.pardir, "data", "graph.npy"))
 
-    # Load covariates
+    # Load small subset of covariates
     cov = generate_features_small()
 
     # Initialize hierarchy object with Delta and cov
@@ -21,6 +21,10 @@ if __name__ == "__main__":
 
     # Optimize model
     parms = model.optim(lambd0 = 0.1)
+    print(parms)
 
-    with open('../outputs/parameters.json', 'wb') as file:
+    with open('parameters.json', 'wb') as file:
+        json.dump(parms, file)
+
+    with open(os.path.join(os.pardir, "data", "parameters.json", "wb")) as file:
         json.dump(parms, file)
