@@ -86,7 +86,7 @@ class hierarchy_model:
         feature_list = [pairwise_vector_diff]*self.k_covs
         return feature_list
 
-    def simulate(self, beta, lambd, scoring, steps):
+    def simulate(self, beta, lambd, steps):
         '''
         This is used to simulate an iteration of our model.
         scoring: this is a function which allows us to score our agents at
@@ -95,34 +95,12 @@ class hierarchy_model:
         lambd: is a parameter denoting the relative weights of new endorsements
         and endorsement history.
         '''
-        n = self.n
-        Delta = np.zeros((steps + 1, n, n))  # Unweighted Updates
-        Delta[0] = self.A0
-        A = Delta.copy()  # Weighted history
-        PHI = np.zeros((self.k_features, n, n))  # Features computed from score
-
-        # Initializing variables
-        self.prob_mat = np.zeros((steps, n, n))
-        self.A = np.zeros((steps.n, n, n))
+        self.steps = steps
+        self.A = self.compute_state_from_deltas(lambd)
         self.compute_phi()
+        self.compute_prob_mat(beta)
 
-        for t in range(1, steps + 1):
-
-            # Compute prob_mat using features
-            p = np.tensordot(beta, PHI[t], axes=(0, 0))  # Taking R to [0. 1]
-
-            prob_mat = np.exp(p)
-            prob_mat = prob_mat / prob_mat.sum(axis=1)[:, np.newaxis]
-
-            # Compute update
-            Delta[t-1] = deterministic_step(prob_mat)
-
-            # update state
-            A[t] = lambd*A[t-1] + (1 - lambd)*Delta[t-1]
-
-            self.prob_mat[t-1] = prob_mat
-            self.A[t-1] = A[t-1]
-            return Delta
+        return self.prob_mat
 
     # Inference process functions
     def compute_state_from_deltas(self, lambd, A0=None):
@@ -243,7 +221,6 @@ class hierarchy_model:
 
             obj_prop = np.inf
             prop = lambd - alpha*step
-            print(alpha*step)
             while obj_prop > obj:
                 # Once we identify direction of increase find hyper parameter
                 # small enough for obj increase
