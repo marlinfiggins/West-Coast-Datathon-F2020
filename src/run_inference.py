@@ -5,7 +5,7 @@
 
 from Graph_Helper import load_timesteps
 from hierarchy_model import hierarchy_model
-from feature_mat import *
+from Recent_10_feature_mat import generate_features
 import json
 import os
 
