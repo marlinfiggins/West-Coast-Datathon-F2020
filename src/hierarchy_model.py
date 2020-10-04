@@ -7,10 +7,6 @@
 # Author: Marlin Figgins
 
 # To do:
-# Implement scoring based on statistical model
-# -We generate scores based on several covariates which are entered as a matrix for each actor
-# -We then use features in the model phi x is x is good example
-# Finish implementing set_featurse and compute features
 # Implement get_ methods for visualization
 # Simulate heirarchies based on this model for Actor netowrks.
 
@@ -41,7 +37,7 @@ def compute_ll(Delta, log_list):
     ll = 0
     for i in range(Delta.shape[0]):
         for j in range(Delta.shape[0]):
-            ll += Delta[i,j]*log_list[i,j]
+            ll += Delta[i, j]*log_list[i, j]
     return ll
 
 class hierarchy_model:
@@ -150,7 +146,6 @@ class hierarchy_model:
         for t in range(self.steps):
             self.prob_mat = [0]*self.steps
             p = [0]*self.k_features
-            #p = sum([beta[j]*self.PHI[t][j] for j in range(self.k_features)])
             for j in range(self.k_features):
                 p[j] = beta[j]*self.PHI[t][j]
 
@@ -170,11 +165,10 @@ class hierarchy_model:
         log_list = self.compute_prob_mat(beta)
         ll = 0
         for t in range(1, self.steps - 1):
-            #ll += (self.Delta[t].toarray()*np.log(self.prob_mat[t])).sum()
-            #ll = np.matmul(self.Delta[t].toarray(), log_list[t]).sum()
             #ll += self.Delta[t].multiply(log_list[t]).sum()
             ll += compute_ll(self.Delta[t].toarray(), log_list[t])
-        print(ll)
+        #print(beta)
+        #print(ll)
         return -ll
 
 
@@ -195,8 +189,7 @@ class hierarchy_model:
         print(res.message)
         return res
 
-    def objective(self, lambd, tol):
-        self.compute_state_from_deltas(lambd)
+    def objective(self, tol):
         print("Starting optimization over beta.")
 
         res = self.beta_max(b0=self.b0)
@@ -204,7 +197,7 @@ class hierarchy_model:
         self.b0 = res['x']
         return out
 
-    def optim(self, lambd0, alpha0=1, delta=10 ** (-1), tol=10 ** (-2), max_step=0.5):
+    def optim(self, tol=10 ** (-2)):
         # We'll use a finite differences scheme to optimize this.
 
         # Write function that saves this and loads if already exists
@@ -214,7 +207,7 @@ class hierarchy_model:
         self.b0 = np.zeros(self.k_features)
 
         # Initalizing for gradient ascent
-        out = self.objective(lambd0, tol)
+        out = self.objective(tol)
         # alpha = alpha0
         # lambd = lambd0
 

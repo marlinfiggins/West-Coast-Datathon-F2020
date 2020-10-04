@@ -22,7 +22,7 @@ if __name__ == "__main__":
     # model = hierarchy_model(Delta=Delta[Test_steps], cov=cov[Test_steps])
 
     # Optimize model
-    parms = model.optim(lambd0 = 1)
+    parms = model.optim(tol=10 ** (-3))
     print(parms)
 
     with open('parameters.json', 'w') as file:
