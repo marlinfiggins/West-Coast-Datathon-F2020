@@ -244,7 +244,6 @@ class hierarchy_model:
         # out = self.objective(lambd)
 
         return({
-         #   'lambda': lambd,
             'beta': self.b0.tolist(),
             "LL": out
         })
