@@ -21,16 +21,34 @@ import sklearn.metrics.pairwise
 import warnings
 
 @jit(nopython=True)
-def deterministic_step(prob_mat, endorse_per_agent=1):
+def deterministic_step(prob_mat, collab_per_agent=1):
     '''
     Computes the matrix Delta(t) given a matrix of probabilities
     for endorsements between individuals i and j.
 
-    endorse_per_agent gives the total number of endorsesment that each individual is allowed to give per time step.
+    collab_per_agent gives the total number of collaborations that each individual is allowed to give per time step.
     '''
     n = prob_mat.shape[0]  # self.n?
     Delta = prob_mat*endorse_per_agent / n
     return Delta
+
+def stochastic_step(prob_mat, m_updates_per = None, m_updates = 500):
+
+	n = prob_mat.shape[0]
+	Delta = np.zeros_like(prob_mat) # initialize
+
+	# if m_updates is set, randomly select agents to make endorsements a total of m_updates times.
+	if m_updates is not None:
+		for u in range(m_updates):
+			i = np.random.randint(n)
+			j = np.random.choice(n, p = prob_mat[i])
+			Delta[i,j] += 1
+	# otherwise, each agent makes m_updates_per endorsements.
+	else:
+		for i in range(n):
+			J = np.random.choice(n, p = prob_mat[i], size = m_updates_per)
+			Delta[i,J] += 1
+	return(Delta)
 
 @jit(nopython=True)
 def compute_ll(Delta, log_list):
@@ -95,12 +113,17 @@ class hierarchy_model:
         lambd: is a parameter denoting the relative weights of new endorsements
         and endorsement history.
         '''
-        self.steps = steps
         self.A = self.compute_state_from_deltas(lambd)
         self.compute_phi()
-        self.compute_prob_mat(beta)
+        log_list = self.compute_prob_mat(beta)
+        prob_list = [np.exp(P) for P in log_list]
 
-        return self.prob_mat
+        self.Delta_sim = []
+        for t in range(steps):
+            #self.Delta_sim.append(deterministic_step(prob_list[t]))
+            self.Delta_sim.append(stochastic_step(prob_list[t]))
+
+        return prob_list
 
     # Inference process functions
     def compute_state_from_deltas(self, lambd, A0=None):
@@ -120,12 +143,10 @@ class hierarchy_model:
         Each phi must take n_agents by k_cov to feature vector of interest.
         phi[1] -> f(cov) = (cov - cov.T)
         '''
-        #self.PHI = np.zeros((self.steps, self.k_features, self.n, self.n))
         self.PHI = []
         for t in range(self.steps):
             placeholder = []
             for j in range(self.k_features):
-                #self.PHI[t][j] = self.phi[j](self.cov[t][:, j])
                 placeholder.append(self.phi[j](self.cov[t][:, j]))
             self.PHI.append(placeholder)
             print(f"Features at time {t} computed.")
@@ -140,8 +161,9 @@ class hierarchy_model:
         '''
         Compute probability matrix corresponding to the weighted features.
         '''
-
+        #self.prob_list = []
         log_list = []
+
         # Compute rates from beta
         for t in range(self.steps):
             self.prob_mat = [0]*self.steps
@@ -150,7 +172,9 @@ class hierarchy_model:
                 p[j] = beta[j]*self.PHI[t][j]
 
             self.prob_mat[t] = np.exp(sum(p).toarray())
-            self.prob_mat[t] = self.prob_mat[t]/ self.prob_mat[t].sum(axis =1)[:, np.newaxis]
+            self.prob_mat[t] = self.prob_mat[t]/ self.prob_mat[t].sum(axis=0)[:, np.newaxis]
+
+            #self.prob_list.append(self.prob_mat[t])
             log_list.append(np.log(self.prob_mat[t]))
 
         return log_list
@@ -243,10 +267,13 @@ class hierarchy_model:
 
     # Inspection methods
     def get_Delta(self):
-        pass
-
-    def get_scores(self):
-        pass
+        return self.Delta
 
     def get_states(self):
-        pass
+        return self.A
+
+    def get_prob_mat(self):
+        return self.prob_mat
+
+    def get_Delta_sim(self):
+        return self.Delta_sim

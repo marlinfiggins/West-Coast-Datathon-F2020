@@ -14,8 +14,8 @@ if __name__ == "__main__":
     nodelist, Delta = load_timesteps(os.path.join(os.pardir, "data", "last_10_graph.npy"))
 
     # Load small subset of covariates
-#    cov = generate_features_small()
-    cov = generate_features()
+    cov = generate_features_small()
+    #cov = generate_features()
 
     # Initialize hierarchy object with Delta and cov
     model = hierarchy_model(Delta=Delta[-10:], cov=cov[-10:]) # Restricting to most recent 10 years
@@ -24,9 +24,6 @@ if __name__ == "__main__":
     # Optimize model
     parms = model.optim(tol=10 ** (-3))
     print(parms)
-
-    with open('parameters.json', 'w') as file:
-        json.dump(parms, file)
 
     with open(os.path.join(os.pardir, "data", "parameters.json"), "w") as file:
         json.dump(parms, file)
