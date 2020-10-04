@@ -195,7 +195,7 @@ class hierarchy_model:
         print(res.message)
         return res
 
-    def objective(self, lambd):
+    def objective(self, lambd, tol):
         self.compute_state_from_deltas(lambd)
         print("Starting optimization over beta.")
 
@@ -214,8 +214,7 @@ class hierarchy_model:
         self.b0 = np.zeros(self.k_features)
 
         # Initalizing for gradient ascent
-        obj_old = np.inf
-        obj = self.objective(lambd0)
+        out = self.objective(lambd0, tol)
         # alpha = alpha0
         # lambd = lambd0
 
