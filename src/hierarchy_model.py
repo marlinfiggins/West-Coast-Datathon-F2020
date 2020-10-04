@@ -36,8 +36,12 @@ def deterministic_step(prob_mat, endorse_per_agent=1):
     Delta = prob_mat*endorse_per_agent / n
     return Delta
 
+@jit(nopython=True)
 def compute_ll(Delta, log_list):
-    ll = np.matmul(Delta, log_list).sum()
+    ll = 0
+    for i in range(Delta.shape[0]):
+        for j in range(Delta.shape[0]):
+            ll += Delta[i,j]*log_list[i,j]
     return ll
 
 class hierarchy_model:
@@ -168,8 +172,9 @@ class hierarchy_model:
         for t in range(1, self.steps - 1):
             #ll += (self.Delta[t].toarray()*np.log(self.prob_mat[t])).sum()
             #ll = np.matmul(self.Delta[t].toarray(), log_list[t]).sum()
-            #ll += compute_ll(self.Delta[t].toarray(), log_list[t])
-            ll += self.Delta[t].multiply(log_list[t]).sum()
+            #ll += self.Delta[t].multiply(log_list[t]).sum()
+            ll += compute_ll(self.Delta[t].toarray(), log_list[t])
+        print(ll)
         return -ll
 
 
